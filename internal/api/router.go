@@ -142,13 +142,22 @@ func SetupRouter(wsManager *WebSocketManager, client *inmem.KVClient, clusterCon
 			return
 		}
 
-		c.JSON(200, gin.H{
-			"success": true,
-			"key":     key,
-			"field":   field,
-			"result":  "Entry appended to leader's log for deletion",
-			"details": res,
-		})
+		if res.Success {
+			c.JSON(202, gin.H{
+				"success":   true,
+				"message":   "KV store entry appended to leader log for deletion — replication in progress",
+				"key":       key,
+				"field":     field,
+				"timestamp": timestamp,
+				"log_index": res.Index,
+				"term":      res.Term,
+				"status":    "pending_commit",
+			})
+		} else if res.Error == "NOT_LEADER" || res.Error == "NO_LEADER" {
+			c.JSON(503, gin.H{"success": false, "error": res.Error, "message": "Election in progress — please retry shortly."})
+		} else {
+			c.JSON(500, gin.H{"success": false, "error": res.Error, "message": res.Message})
+		}
 	})
 
 	r.GET("/health", func(c *gin.Context) {
