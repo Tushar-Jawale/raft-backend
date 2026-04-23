@@ -32,6 +32,9 @@ type WebSocketBroadcaster interface {
 	BroadcastLogEntry(nodeID string, command string, index int, committed bool)
 	BroadcastEntriesCommitted(nodeID string, commitIndex, term int)
 	BroadcastKVStoreUpdate(nodeID string, index int, logEntry LogEntry, result map[string]interface{})
+	// BroadcastNodePowerChange notifies all clients when a node is killed or revived
+	// so every open browser tab stays in sync with the actual cluster state.
+	BroadcastNodePowerChange(nodeID string, status string)
 }
 
 type Raft struct {

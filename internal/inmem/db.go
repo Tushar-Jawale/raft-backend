@@ -34,15 +34,6 @@ func NewByteDataDB() *ByteDataDB {
 	}
 }
 
-var instance *ByteDataDB
-var once sync.Once
-
-func GetInstance() *ByteDataDB {
-	once.Do(func() {
-		instance = NewByteDataDB()
-	})
-	return instance
-}
 
 func (db *ByteDataDB) SetAt(key, field, value string, timestamp int64, ttl *int64) {
 	db.mu.Lock()

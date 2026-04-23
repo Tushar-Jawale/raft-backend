@@ -37,6 +37,11 @@ var raftConfigMap = map[string]struct{ Host string; Port int }{
 }
 
 func main() {
+	// Environment variables are read via os.LookupEnv (see getEnvOrDefault above).
+	// In production, inject HOST / PORT / RAFT_INTERNAL_HOST through your platform's
+	// native config (Docker -e flags, Railway/Render dashboard, K8s Secrets, etc.).
+	// A local .env file is NOT loaded — use 'export VAR=value' or your IDE's run config.
+
 	fmt.Println("============================================================")
 	fmt.Println("RAFT Cluster Go Backend")
 	fmt.Println("============================================================")

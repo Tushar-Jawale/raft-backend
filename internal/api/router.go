@@ -75,15 +75,20 @@ func SetupRouter(wsManager *WebSocketManager, client *inmem.KVClient, clusterCon
 		}
 
 		if res.Success {
-			c.JSON(200, gin.H{
+			// 202 Accepted: the entry has been appended to the leader's log and
+			// replication to followers is in progress. It will be committed once
+			// a majority of nodes confirm. Watch WebSocket 'entries_committed'
+			// events for durable confirmation.
+			c.JSON(202, gin.H{
 				"success":   true,
-				"message":   "KV store entry submitted for replication",
+				"message":   "KV store entry appended to leader log — replication in progress",
 				"key":       item.Key,
 				"field":     item.Field,
 				"value":     item.Value,
 				"timestamp": timestamp,
 				"log_index": res.Index,
 				"term":      res.Term,
+				"status":    "pending_commit",
 			})
 		} else if res.Error == "NOT_LEADER" || res.Error == "NO_LEADER" {
 			c.JSON(503, gin.H{"success": false, "error": res.Error, "message": "Election in progress — please retry shortly."})
@@ -105,7 +110,7 @@ func SetupRouter(wsManager *WebSocketManager, client *inmem.KVClient, clusterCon
 
 		c.JSON(200, gin.H{
 			"success": true,
-			"message": "Data retrived successfully",
+			"message": "Data retrieved successfully",
 			"value":   res.Value,
 		})
 	})

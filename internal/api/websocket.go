@@ -90,6 +90,18 @@ func (wm *WebSocketManager) syncState(sc *safeConn) {
 	wm.mu.Unlock()
 
 	for nodeID, raftNode := range nodesCopy {
+		// Send current power status
+		status := "alive"
+		if raftNode.IsKilled() {
+			status = "dead"
+		}
+		wm.sendToClient(sc, map[string]interface{}{
+			"type":      "node_power_change",
+			"node_id":   nodeID,
+			"status":    status,
+			"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+		})
+
 		// GetRaftData acquires raft.mu internally — safe because we don't hold wm.mu
 		logs, commitIndex := raftNode.GetRaftData()
 		for i, logEntry := range logs {
@@ -282,6 +294,16 @@ func (wm *WebSocketManager) BroadcastKVStoreUpdate(nodeID string, index int, log
 		"key":       result["key"],
 		"field":     result["field"],
 		"value":     result["value"],
+		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	wm.broadcast(msg)
+}
+
+func (wm *WebSocketManager) BroadcastNodePowerChange(nodeID string, status string) {
+	msg := map[string]interface{}{
+		"type":      "node_power_change",
+		"node_id":   nodeID,
+		"status":    status, // "alive" or "dead"
 		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
 	}
 	wm.broadcast(msg)

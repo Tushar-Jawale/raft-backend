@@ -8,5 +8,9 @@ main.exe
 .env.*
 !.env.example
 
+# Raft persistent state and log files (runtime-generated)
+raft_node_*.jsonl
+raft_node_*_state.json
+
 # Logs
 *.log

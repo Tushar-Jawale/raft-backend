@@ -65,10 +65,15 @@ func (rs *RaftService) ReadKV(args ReadKVArgs, reply *ReadKVResponse) error {
 func (rs *RaftService) TogglePower(ignore struct{}, reply *NodeStatusResponse) error {
 	if rs.raft.IsKilled() {
 		rs.raft.Revive()
-		*reply = NodeStatusResponse{Success: true, NodeID: rs.raft.ID, Status: "alive", Message: "Node is testing"}
+		*reply = NodeStatusResponse{Success: true, NodeID: rs.raft.ID, Status: "alive", Message: "Node revived"}
 	} else {
 		rs.raft.Kill()
 		*reply = NodeStatusResponse{Success: true, NodeID: rs.raft.ID, Status: "dead", Message: "Node killed"}
+	}
+	// Broadcast to ALL connected WebSocket clients so every open browser tab
+	// immediately reflects the real node power state (fixes multi-tab stale UI bug).
+	if rs.raft.WSManager != nil {
+		rs.raft.WSManager.BroadcastNodePowerChange(rs.raft.ID, reply.Status)
 	}
 	return nil
 }
