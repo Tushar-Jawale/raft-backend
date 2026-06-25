@@ -394,7 +394,7 @@ func (r *Raft) sendHeartbeatToPeer(peerID string, host string, port int) {
 
 	var entries []LogEntry
 	if nextIdx < len(r.Logs) {
-		entries = append(entries, r.Logs[nextIdx]) // sending one by one
+		entries = append(entries, r.Logs[nextIdx:]...) // sending all missing entries at once
 	}
 
 	args := HealthCheckArguments{
@@ -502,7 +502,7 @@ func (r *Raft) applyCommittedEntries() {
 			result = r.StateMachineApplier.Apply(entry.Command)
 		}
 
-		if r.WSManager != nil {
+		if r.WSManager != nil && r.State == Leader {
 			r.WSManager.BroadcastKVStoreUpdate(r.ID, r.LastApplied, entry, result)
 		}
 	}

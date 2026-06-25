@@ -14,8 +14,8 @@ type KVCommand struct {
 	Key       string      `json:"key"`
 	Field     string      `json:"field"`
 	Value     string      `json:"value,omitempty"`
-	Timestamp int64       `json:"timestamp"`
-	TTL       *int64      `json:"ttl,omitempty"`
+	Timestamp int64       `json:"timestamp"`     // timestamp in microseconds (UnixMicro)
+	TTL       *int64      `json:"ttl,omitempty"` // TTL in seconds
 }
 
 func CreateSetCommand(key, field, value string, timestamp int64, ttl *int64) string {

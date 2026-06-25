@@ -30,6 +30,7 @@ func (sma *StateMachineApplier) Apply(commandStr string) map[string]interface{} 
 			"success":   true,
 			"operation": "DELETE",
 			"key":       cmd.Key,
+			"field":     cmd.Field,
 			"deleted":   deleted,
 		}
 	}

@@ -286,8 +286,12 @@ func (wm *WebSocketManager) BroadcastEntriesCommitted(nodeID string, commitIndex
 }
 
 func (wm *WebSocketManager) BroadcastKVStoreUpdate(nodeID string, index int, logEntry raftcore.LogEntry, result map[string]interface{}) {
+	msgType := "kv_store_update"
+	if op, ok := result["operation"].(string); ok && op == "DELETE" {
+		msgType = "kv_store_delete"
+	}
 	msg := map[string]interface{}{
-		"type":      "kv_store_update",
+		"type":      msgType,
 		"node_id":   nodeID,
 		"log_index": index,
 		"log_entry": logEntry,

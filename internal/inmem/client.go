@@ -181,18 +181,21 @@ func (c *KVClient) Set(key, field, value string, timestamp int64, ttl *int64) (r
 
 	fmt.Printf("[KVClient] SET %s — registered pending write barrier\n", cacheKey)
 
-	// When SendToLeader returns (committed or failed), close the barrier to unblock readers
-	defer func() {
+	result, err := c.SendToLeader(CreateSetCommand(key, field, value, timestamp, ttl))
+	if err != nil || !result.Success {
 		c.mu.Lock()
 		if c.pendingKeys[cacheKey] == doneCh {
 			delete(c.pendingKeys, cacheKey)
 		}
 		c.mu.Unlock()
 		close(doneCh)
-		fmt.Printf("[KVClient] SET %s — write barrier released\n", cacheKey)
-	}()
+		fmt.Printf("[KVClient] SET %s — write barrier released (failed)\n", cacheKey)
+		return result, err
+	}
 
-	return c.SendToLeader(CreateSetCommand(key, field, value, timestamp, ttl))
+	go c.waitForCommit(result.Index, cacheKey, doneCh)
+
+	return result, err
 }
 
 // Delete registers a per-key barrier, then sends the delete to the leader.
@@ -206,6 +209,24 @@ func (c *KVClient) Delete(key, field string, timestamp int64) (raftcore.CommandR
 
 	fmt.Printf("[KVClient] DELETE %s — registered pending write barrier\n", cacheKey)
 
+	result, err := c.SendToLeader(CreateDeleteCommand(key, field, timestamp))
+	if err != nil || !result.Success {
+		c.mu.Lock()
+		if c.pendingKeys[cacheKey] == doneCh {
+			delete(c.pendingKeys, cacheKey)
+		}
+		c.mu.Unlock()
+		close(doneCh)
+		fmt.Printf("[KVClient] DELETE %s — write barrier released (failed)\n", cacheKey)
+		return result, err
+	}
+
+	go c.waitForCommit(result.Index, cacheKey, doneCh)
+
+	return result, err
+}
+
+func (c *KVClient) waitForCommit(index int, cacheKey string, doneCh chan struct{}) {
 	defer func() {
 		c.mu.Lock()
 		if c.pendingKeys[cacheKey] == doneCh {
@@ -213,10 +234,43 @@ func (c *KVClient) Delete(key, field string, timestamp int64) (raftcore.CommandR
 		}
 		c.mu.Unlock()
 		close(doneCh)
-		fmt.Printf("[KVClient] DELETE %s — write barrier released\n", cacheKey)
+		fmt.Printf("[KVClient] %s — write barrier released for index %d\n", cacheKey, index)
 	}()
 
-	return c.SendToLeader(CreateDeleteCommand(key, field, timestamp))
+	if index < 0 {
+		return
+	}
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	timeout := time.After(15 * time.Second)
+
+	for {
+		select {
+		case <-timeout:
+			fmt.Printf("[KVClient] %s — timeout waiting for commit of index %d\n", cacheKey, index)
+			return
+		case <-ticker.C:
+			c.mu.Lock()
+			leader := c.leaderID
+			if leader == "" {
+				c.mu.Unlock()
+				continue
+			}
+			conn, err := c.getConnectionLocked(leader)
+			c.mu.Unlock()
+
+			if err != nil || conn == nil {
+				continue
+			}
+
+			var res raftcore.ReadLogResult
+			err = conn.Call("RaftService.ReadLog", index, &res)
+			if err == nil && res.Success && res.Committed {
+				return
+			}
+		}
+	}
 }
 
 type ReadKVArgs struct {

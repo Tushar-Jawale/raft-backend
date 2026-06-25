@@ -8,15 +8,15 @@ import (
 
 type ByteDataField struct {
 	Value     string
-	CreatedAt int64
-	TTL       *int64
+	CreatedAt int64  // timestamp in microseconds (UnixMicro)
+	TTL       *int64 // TTL in seconds
 }
 
 func (f *ByteDataField) IsAlive(timestamp int64) bool {
 	if f.TTL == nil {
 		return true
 	}
-	return timestamp <= f.CreatedAt+(*f.TTL*1000)
+	return timestamp <= f.CreatedAt+(*f.TTL*1000000)
 }
 
 type ByteDataRecord struct {
